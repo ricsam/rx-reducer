@@ -1,6 +1,6 @@
 {
   "name": "rx-reducer",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "",
   "keywords": [],
   "main": "dist/rx-reducer.umd.js",
@@ -32,7 +32,8 @@
     "semantic-release": "semantic-release",
     "semantic-release-prepare": "ts-node tools/semantic-release-prepare",
     "precommit": "lint-staged",
-    "travis-deploy-once": "travis-deploy-once"
+    "travis-deploy-once": "travis-deploy-once",
+    "prepublishOnly": "npm run prebuild && npm run build"
   },
   "lint-staged": {
     "{src,test}/**/*.ts": [
