@@ -1,6 +1,6 @@
 {
   "name": "rx-reducer",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "",
   "keywords": [],
   "main": "dist/rx-reducer.umd.js",

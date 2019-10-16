@@ -2,7 +2,7 @@ import { fakeSchedulers } from 'rxjs-marbles/jest'
 import { createRxReducer } from '../src/rx-reducer'
 import { isPlainObject } from 'lodash'
 import produce from 'immer'
-import { Subject, Observer } from 'rxjs'
+import { Subject, Observer, of } from 'rxjs'
 import { filter, map } from 'rxjs/operators'
 
 type Dictionary<T> = {
@@ -67,29 +67,28 @@ const reducer = produce((state: State, action: Action) => {
   }
 }, initialState)
 
-const additionalActions$ = new Subject<Action>()
-const dispatch = (action: Action) => {
-  additionalActions$.next(action)
-}
-const state$ = createRxReducer<State, Action>(reducer, initialState, [
-  (action$, state$) => {
-    return additionalActions$
-  },
-  (action$, state$) => {
-    return action$.pipe(
-      filter(({ type }) => type === 'CREATE_ITEM'),
-      map(action => {
-        return actions.deleteItem(action.payload.id)
-      })
-    )
-  }
-])
-
 describe('rx reducer tests', () => {
   beforeEach(() => jest.useFakeTimers())
   it(
     'should work',
     fakeSchedulers(advance => {
+      const additionalActions$ = new Subject<Action>()
+      const dispatch = (action: Action) => {
+        additionalActions$.next(action)
+      }
+      const state$ = createRxReducer<State, Action>(reducer, initialState, [
+        (action$, state$) => {
+          return additionalActions$
+        },
+        (action$, state$) => {
+          return action$.pipe(
+            filter(({ type }) => type === 'CREATE_ITEM'),
+            map(action => {
+              return actions.deleteItem(action.payload.id)
+            })
+          )
+        }
+      ])
       const observer: Observer<State> = {
         next: (state: State) => {
           console.log('@state', JSON.stringify(state, null, 2))
@@ -106,11 +105,52 @@ describe('rx reducer tests', () => {
 
       dispatch(actions.createItem())
       advance(500)
-      expect(spy).toBeCalledTimes(2)
-      expect(spy).toHaveBeenNthCalledWith(1, {
+      expect(spy).toBeCalledTimes(3)
+      expect(spy).toHaveBeenNthCalledWith(1, initialState)
+      expect(spy).toHaveBeenNthCalledWith(2, {
         items: [{ id: 'someId', value: 'value' }]
       })
-      expect(spy).toHaveBeenNthCalledWith(2, initialState)
+      expect(spy).toHaveBeenNthCalledWith(3, initialState)
+    })
+  )
+  it(
+    'should replay instant middlewares',
+    fakeSchedulers(advance => {
+      const observer: Observer<State> = {
+        next: (state: State) => {
+          console.log('@state', JSON.stringify(state, null, 2))
+        },
+        error: (err: any) => {
+          console.log('@error', err)
+        },
+        complete: () => {
+          console.log('@completed')
+        }
+      }
+      const spy = jest.spyOn(observer, 'next')
+
+      const state$ = createRxReducer<State, Action>(reducer, initialState, [
+        (action$, state$) => {
+          return of(actions.createItem())
+        },
+        (action$, state$) => {
+          return action$.pipe(
+            filter(({ type }) => type === 'CREATE_ITEM'),
+            map(action => {
+              return actions.deleteItem(action.payload.id)
+            })
+          )
+        }
+      ])
+      state$.subscribe(observer)
+
+      advance(500)
+      expect(spy).toBeCalledTimes(3)
+      expect(spy).toHaveBeenNthCalledWith(1, initialState)
+      expect(spy).toHaveBeenNthCalledWith(2, {
+        items: [{ id: 'someId', value: 'value' }]
+      })
+      expect(spy).toHaveBeenNthCalledWith(3, initialState)
     })
   )
 })
